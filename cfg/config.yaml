@@ -1,0 +1,11 @@
+defaults:
+  - _self_
+
+llm:
+  model: gpt-4o-mini
+  temperature: 1.0
+
+paths:
+  project_root: ${hydra:runtime.cwd}
+  data_dir: ${paths.project_root}/data
+  database_dir: ${paths.project_root}/database
