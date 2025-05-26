@@ -1,0 +1,9 @@
+{
+    "dependencies": [
+        "."
+    ],
+    "graphs": {
+        "RAGChain": "main.py:main_graph"
+    },
+    "env": "env"
+}
