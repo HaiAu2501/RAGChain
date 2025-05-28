@@ -83,12 +83,8 @@ class DatabaseBuilder:
             chunks = self.text_splitter.split_documents(documents)
             print(f"Split into {len(chunks)} chunks for embedding...")
             
-            # Create vector database
-            vectordb = Chroma.from_documents(
-                documents=chunks,
-                embedding=self.embeddings,
-                persist_directory=str(self.database_dir)
-            )
+            # Create vector database with batch processing
+            vectordb = self._create_database_with_batches(chunks)
         else:
             # Create empty database
             vectordb = Chroma(
@@ -157,3 +153,60 @@ class DatabaseBuilder:
         
         print(f"Successfully loaded {len(documents)} documents")
         return documents
+    
+    def _create_database_with_batches(self, chunks: List[Document]) -> Chroma:
+        """Create database by processing chunks in batches to avoid token limits"""
+        # Calculate batch size based on estimated tokens per chunk
+        # Assuming average ~500 tokens per chunk, use batch size of 500 chunks (~250k tokens)
+        batch_size = 500
+        
+        # Create empty database first
+        vectordb = Chroma(
+            persist_directory=str(self.database_dir),
+            embedding_function=self.embeddings
+        )
+        
+        # Process chunks in batches
+        total_batches = (len(chunks) + batch_size - 1) // batch_size  # Ceiling division
+        
+        for i in range(0, len(chunks), batch_size):
+            batch_num = (i // batch_size) + 1
+            batch_chunks = chunks[i:i + batch_size]
+            
+            print(f"Processing batch {batch_num}/{total_batches} ({len(batch_chunks)} chunks)...")
+            
+            try:
+                # Add batch to existing database
+                vectordb.add_documents(batch_chunks)
+                print(f"Successfully added batch {batch_num}")
+                
+            except Exception as e:
+                if "max_tokens_per_request" in str(e):
+                    print(f"Batch {batch_num} too large, splitting further...")
+                    # Split this batch into smaller sub-batches
+                    sub_batch_size = batch_size // 2
+                    for j in range(0, len(batch_chunks), sub_batch_size):
+                        sub_batch = batch_chunks[j:j + sub_batch_size]
+                        try:
+                            vectordb.add_documents(sub_batch)
+                            print(f"Successfully added sub-batch ({len(sub_batch)} chunks)")
+                        except Exception as sub_e:
+                            print(f"Error processing sub-batch: {str(sub_e)}")
+                            # Process chunks one by one as last resort
+                            self._add_chunks_individually(vectordb, sub_batch)
+                else:
+                    print(f"Error processing batch {batch_num}: {str(e)}")
+                    continue
+        
+        return vectordb
+    
+    def _add_chunks_individually(self, vectordb: Chroma, chunks: List[Document]):
+        """Add chunks one by one as fallback for very large chunks"""
+        for idx, chunk in enumerate(chunks):
+            try:
+                vectordb.add_documents([chunk])
+                if (idx + 1) % 10 == 0:
+                    print(f"Added {idx + 1}/{len(chunks)} individual chunks...")
+            except Exception as e:
+                print(f"Failed to add individual chunk {idx + 1}: {str(e)}")
+                continue
