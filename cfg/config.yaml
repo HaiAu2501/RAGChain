@@ -2,8 +2,18 @@ defaults:
   - _self_
 
 llm:
-  model: gpt-4o-mini
-  temperature: 1.0
+  api_key: ${oc.env:OPENAI_API_KEY}
+
+  embeddings:
+    model: text-embedding-3-small
+    chunk_size: 1000
+    chunk_overlap: 200
+
+  completions:
+    model: gpt-4o-mini
+    temperature: 1.0
+    use_tools: false
+    use_cache: true
 
 paths:
   project_root: ${hydra:runtime.cwd}

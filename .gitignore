@@ -2,3 +2,5 @@ env/
 .env
 data/
 database/
+outputs/
+__pycache__/
