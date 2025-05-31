@@ -6,3 +6,4 @@ RAGChain is a modular framework for building advanced Retrieval-Augmented Genera
 
 - [2025-05-20] Project initialized.
 - [2025-05-28] Refactored the database building process to handle data in batches, mitigating request overload.
+- [2025-05-31] Tree-of-RAG is now available, allowing for more complex RAG pipelines.

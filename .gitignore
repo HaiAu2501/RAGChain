@@ -1,6 +1,8 @@
+.vscode/
 env/
 .env
 data/
 database/
 outputs/
 __pycache__/
+test.ipynb

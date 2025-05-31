@@ -12,8 +12,17 @@ llm:
   completions:
     model: gpt-4o-mini
     temperature: 1.0
+
+tree:
+  hyperparams:
+    n_branches: 3
+    n_queries: 2
+    n_results: 5
+    n_iterations: 5
+
+  flag:
+    use_cache: false
     use_tools: false
-    use_cache: true
 
 paths:
   project_root: ${hydra:runtime.cwd}
