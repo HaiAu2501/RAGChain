@@ -25,6 +25,6 @@ tree:
     use_tools: false
 
 paths:
-  project_root: ${hydra:runtime.cwd}
-  data_dir: ${paths.project_root}/data
-  database_dir: ${paths.project_root}/database
+  project_root: .
+  data_dir: ./data
+  database_dir: ./database

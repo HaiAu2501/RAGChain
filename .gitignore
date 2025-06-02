@@ -6,3 +6,4 @@ database/
 outputs/
 __pycache__/
 test.ipynb
+.langgraph_api/

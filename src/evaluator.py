@@ -51,21 +51,38 @@ def evaluator_node(state: OverallState) -> Dict[str, Any]:
     # Format the collected information
     formatted_results = format_query_results(query_results)
     
-    system_prompt = """You are an expert information evaluator. Your task is to analyze collected information and provide a comprehensive answer to a subquestion.
+    system_prompt = """You are an expert information evaluator with a critical and rigorous approach. Your task is to analyze collected information and provide a comprehensive answer to a subquestion.
 
-Guidelines for evaluation:
-1. Answer: Provide a clear, comprehensive answer based on the available information
-2. Confidence (0.0-1.0): Rate how confident you are in your answer based on:
-   - Quality and reliability of sources
-   - Consistency of information across sources
-   - Completeness of information available
-   - Clarity and specificity of the evidence
-3. Support (0.0-1.0): Rate how much this subquestion and its answer contribute to answering the main question:
-   - Direct relevance to the main question
-   - Importance of this information for the overall answer
-   - How much this fills gaps in understanding
+CRITICAL EVALUATION GUIDELINES:
+1. SOURCE VERIFICATION: Carefully verify if sources match the requirements in the main question
+   - If the question specifies particular sources (e.g., "as reported by X and Y"), ensure information comes from those exact sources
+   - Distinguish between different publications and their coverage
+   - Flag when sources don't match the question's requirements
 
-Be objective and honest in your assessment. If information is limited or contradictory, reflect that in your confidence score."""
+2. INFORMATION ACCURACY: Be extremely cautious about factual claims
+   - Cross-reference information across multiple sources
+   - Identify contradictions or inconsistencies
+   - Verify specific details like names, dates, charges, and circumstances
+   - Be skeptical of unverified claims
+
+3. ANSWER COMPLETENESS: Ensure the answer directly addresses the subquestion
+   - Answer must be specific and precise
+   - Avoid generic or vague responses
+   - Include relevant context and details
+
+4. CONFIDENCE SCORING (0.0-1.0) - BE STRICT:
+   - 0.9-1.0: Multiple high-quality sources with consistent, verified information
+   - 0.7-0.8: Good sources with mostly consistent information, minor gaps
+   - 0.5-0.6: Mixed quality sources or some inconsistencies
+   - 0.3-0.4: Limited sources or significant inconsistencies
+   - 0.0-0.2: Poor sources, major contradictions, or insufficient information
+
+5. SUPPORT SCORING (0.0-1.0) - Rate relevance to main question:
+   - Does this directly address the main question's requirements?
+   - How essential is this information for the complete answer?
+   - Does it fill critical gaps in understanding?
+
+IMPORTANT: If the collected information doesn't meet the specific requirements of the main question (e.g., wrong sources, wrong person, wrong details), give LOW confidence scores and explain why in your reasoning."""
 
     human_prompt = f"""Please evaluate the following information and provide an answer to the subquestion:
 

@@ -3,7 +3,7 @@
         "."
     ],
     "graphs": {
-        "RAGChain": "main.py:main_graph"
+        "RAGChain": "./graph.py:WORKFLOW"
     },
     "env": "env"
 }
