@@ -1,6 +1,8 @@
 import os
+import re
+import pickle
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Dict, Any
 from omegaconf import DictConfig
 import glob
 
@@ -17,6 +19,62 @@ from langchain_community.document_loaders import (
 )
 from langchain.schema import Document
 
+# BM25 implementation
+try:
+    from rank_bm25 import BM25Okapi
+except ImportError:
+    print("Warning: rank_bm25 not found. Install with: pip install rank-bm25")
+    BM25Okapi = None
+
+
+class HybridSearchIndex:
+    """Container for BM25 index and document mapping"""
+    
+    def __init__(self, bm25_index=None, doc_mapping=None, tokenized_corpus=None):
+        self.bm25_index = bm25_index
+        self.doc_mapping = doc_mapping or {}  # index -> document mapping
+        self.tokenized_corpus = tokenized_corpus or []
+    
+    def search(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        """Search BM25 index and return results with scores"""
+        if not self.bm25_index:
+            return []
+        
+        query_tokens = self.tokenize(query)
+        scores = self.bm25_index.get_scores(query_tokens)
+        
+        # Get top k results
+        top_indices = sorted(range(len(scores)), 
+                           key=lambda i: scores[i], 
+                           reverse=True)[:k]
+        
+        results = []
+        for idx in top_indices:
+            if idx in self.doc_mapping:
+                results.append({
+                    'document': self.doc_mapping[idx],
+                    'score': scores[idx],
+                    'index': idx
+                })
+        
+        return results
+    
+    @staticmethod
+    def tokenize(text: str) -> List[str]:
+        """Simple tokenization for BM25"""
+        if not text:
+            return []
+        
+        # Convert to lowercase and remove punctuation
+        text = text.lower()
+        text = re.sub(r'[^\w\s]', ' ', text)
+        
+        # Split and filter empty tokens
+        tokens = [token for token in text.split() if token.strip()]
+        
+        return tokens
+
+
 class DatabaseBuilder:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
@@ -26,6 +84,7 @@ class DatabaseBuilder:
         
         # File to track processed documents
         self.processed_files_path = self.database_dir / "processed_files.txt"
+        self.bm25_index_path = self.database_dir / "bm25_index.pkl"
         
         # Initialize components
         self.embeddings = OpenAIEmbeddings(
@@ -37,11 +96,17 @@ class DatabaseBuilder:
             chunk_size=cfg.llm.embeddings.chunk_size,
             chunk_overlap=cfg.llm.embeddings.chunk_overlap,
         )
+        
+        # BM25 settings
+        self.use_hybrid = cfg.tree.retrieval.use_hybrid
+        self.bm25_k1 = cfg.tree.retrieval.bm25_k1
+        self.bm25_b = cfg.tree.retrieval.bm25_b
     
-    def build_database(self) -> Chroma:
+    def build_database(self) -> tuple:
         """
-        The only public method to build vector database.
-        Returns a Chroma vector database.
+        Build both vector database and BM25 index.
+        Always returns tuple: (vectordb, bm25_index)
+        bm25_index will be None if hybrid is disabled or BM25Okapi is not available
         """
         # Check if database already exists
         if self._database_exists():
@@ -59,12 +124,134 @@ class DatabaseBuilder:
         # Check if there are any files in database directory
         return any(self.database_dir.iterdir())
     
-    def _load_existing_database(self) -> Chroma:
-        """Load existing database"""
-        return Chroma(
+    def _load_existing_database(self) -> tuple:
+        """Load existing vector database and BM25 index. Always returns tuple."""
+        vectordb = Chroma(
             persist_directory=str(self.database_dir),
             embedding_function=self.embeddings
         )
+        
+        bm25_index = self._load_bm25_index()
+        
+        return vectordb, bm25_index
+    
+    def _load_bm25_index(self) -> HybridSearchIndex:
+        """Load BM25 index from disk"""
+        if not self.use_hybrid or BM25Okapi is None:
+            return HybridSearchIndex()
+        
+        if self.bm25_index_path.exists():
+            try:
+                with open(self.bm25_index_path, 'rb') as f:
+                    data = pickle.load(f)
+                
+                print(f"Loaded BM25 index with {len(data.get('doc_mapping', {}))} documents")
+                
+                # Reconstruct BM25 index
+                tokenized_corpus = data.get('tokenized_corpus', [])
+                if tokenized_corpus:
+                    bm25_index = BM25Okapi(tokenized_corpus, k1=self.bm25_k1, b=self.bm25_b)
+                else:
+                    bm25_index = None
+                
+                return HybridSearchIndex(
+                    bm25_index=bm25_index,
+                    doc_mapping=data.get('doc_mapping', {}),
+                    tokenized_corpus=tokenized_corpus
+                )
+                
+            except Exception as e:
+                print(f"Error loading BM25 index: {str(e)}")
+                return HybridSearchIndex()
+        
+        return HybridSearchIndex()
+    
+    def _save_bm25_index(self, bm25_index: HybridSearchIndex):
+        """Save BM25 index to disk"""
+        if not self.use_hybrid or not bm25_index.bm25_index:
+            return
+        
+        try:
+            # Prepare data for serialization
+            data = {
+                'doc_mapping': bm25_index.doc_mapping,
+                'tokenized_corpus': bm25_index.tokenized_corpus
+            }
+            
+            # Ensure database directory exists
+            self.database_dir.mkdir(parents=True, exist_ok=True)
+            
+            with open(self.bm25_index_path, 'wb') as f:
+                pickle.dump(data, f)
+            
+            print(f"Saved BM25 index with {len(bm25_index.doc_mapping)} documents")
+            
+        except Exception as e:
+            print(f"Error saving BM25 index: {str(e)}")
+    
+    def _create_bm25_index(self, documents: List[Document]) -> HybridSearchIndex:
+        """Create BM25 index from documents"""
+        if not self.use_hybrid or BM25Okapi is None or not documents:
+            return HybridSearchIndex()
+        
+        print("Creating BM25 index...")
+        
+        tokenized_corpus = []
+        doc_mapping = {}
+        
+        for idx, doc in enumerate(documents):
+            # Tokenize document content
+            tokens = HybridSearchIndex.tokenize(doc.page_content)
+            tokenized_corpus.append(tokens)
+            doc_mapping[idx] = doc
+        
+        # Create BM25 index
+        bm25_index = BM25Okapi(tokenized_corpus, k1=self.bm25_k1, b=self.bm25_b)
+        
+        hybrid_index = HybridSearchIndex(
+            bm25_index=bm25_index,
+            doc_mapping=doc_mapping,
+            tokenized_corpus=tokenized_corpus
+        )
+        
+        print(f"Created BM25 index with {len(doc_mapping)} documents")
+        
+        return hybrid_index
+    
+    def _update_bm25_index(self, existing_index: HybridSearchIndex, new_documents: List[Document]) -> HybridSearchIndex:
+        """Update BM25 index with new documents"""
+        if not self.use_hybrid or BM25Okapi is None:
+            return existing_index
+        
+        if not new_documents:
+            return existing_index
+        
+        print("Updating BM25 index...")
+        
+        # Get existing data
+        existing_corpus = existing_index.tokenized_corpus.copy()
+        existing_mapping = existing_index.doc_mapping.copy()
+        
+        # Add new documents
+        start_idx = len(existing_mapping)
+        
+        for idx, doc in enumerate(new_documents):
+            tokens = HybridSearchIndex.tokenize(doc.page_content)
+            existing_corpus.append(tokens)
+            existing_mapping[start_idx + idx] = doc
+        
+        # Rebuild BM25 index with all documents
+        bm25_index = BM25Okapi(existing_corpus, k1=self.bm25_k1, b=self.bm25_b)
+        
+        updated_index = HybridSearchIndex(
+            bm25_index=bm25_index,
+            doc_mapping=existing_mapping,
+            tokenized_corpus=existing_corpus
+        )
+        
+        print(f"Updated BM25 index: {len(existing_mapping)} total documents")
+        
+        return updated_index
     
     def _get_processed_files(self) -> Set[str]:
         """Get set of already processed files from tracking file"""
@@ -110,10 +297,10 @@ class DatabaseBuilder:
         # Remove duplicates and return sorted list
         return list(set(all_files))
     
-    def _update_database(self) -> Chroma:
+    def _update_database(self) -> tuple:
         """Update existing database with new documents"""
-        # Load existing database
-        vectordb = self._load_existing_database()
+        # Load existing databases
+        vectordb, bm25_index = self._load_existing_database()
         
         # Get processed files
         processed_files = self._get_processed_files()
@@ -130,7 +317,7 @@ class DatabaseBuilder:
         
         if not new_files:
             print("No new files to process. Database is up to date.")
-            return vectordb
+            return vectordb, bm25_index
         
         print(f"Found {len(new_files)} new files to process:")
         for file_path in new_files:
@@ -146,14 +333,20 @@ class DatabaseBuilder:
             chunks = self.text_splitter.split_documents(new_documents)
             print(f"Split into {len(chunks)} chunks for embedding...")
             
-            # Add new chunks to existing database
+            # Add new chunks to existing vector database
             self._add_chunks_to_database(vectordb, chunks)
+            
+            # Update BM25 index
+            updated_bm25_index = self._update_bm25_index(bm25_index, chunks)
+            self._save_bm25_index(updated_bm25_index)
             
             # Update processed files list
             processed_files.update(str(f) for f in new_files)
             self._save_processed_files(processed_files)
             
-            print(f"Successfully added {len(new_documents)} new documents to database!")
+            print(f"Successfully added {len(new_documents)} new documents to databases!")
+            
+            return vectordb, updated_bm25_index
         else:
             print("No valid documents found in new files.")
             
@@ -161,10 +354,10 @@ class DatabaseBuilder:
             processed_files.update(str(f) for f in new_files)
             self._save_processed_files(processed_files)
         
-        return vectordb
+        return vectordb, bm25_index
     
-    def _create_new_database(self) -> Chroma:
-        """Create new database"""
+    def _create_new_database(self) -> tuple:
+        """Create new database. Always returns tuple (vectordb, bm25_index)."""
         # Create database directory if not exists
         self.database_dir.mkdir(parents=True, exist_ok=True)
         
@@ -178,7 +371,7 @@ class DatabaseBuilder:
             all_files = self._get_all_data_files()
             documents = self._load_specific_documents(all_files)
         
-        # Create database with documents (can be empty)
+        # Create databases with documents (can be empty)
         if documents:
             print(f"Processing {len(documents)} documents...")
             # Split documents into chunks
@@ -187,19 +380,24 @@ class DatabaseBuilder:
             
             # Create vector database with batch processing
             vectordb = self._create_database_with_batches(chunks)
+            
+            # Create BM25 index
+            bm25_index = self._create_bm25_index(chunks)
+            self._save_bm25_index(bm25_index)
         else:
-            # Create empty database
+            # Create empty databases
             vectordb = Chroma(
                 persist_directory=str(self.database_dir),
                 embedding_function=self.embeddings
             )
+            bm25_index = HybridSearchIndex()  # Empty index
         
         # Save processed files list
         processed_files = set(str(f) for f in all_files)
         self._save_processed_files(processed_files)
         
-        print("Database created successfully!")
-        return vectordb
+        print("Databases created successfully!")
+        return vectordb, bm25_index
     
     def _load_documents(self) -> List[Document]:
         """Load all documents from data directory (kept for compatibility)"""

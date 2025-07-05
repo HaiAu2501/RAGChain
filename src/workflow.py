@@ -30,13 +30,13 @@ def should_continue_workflow(state: OverallState) -> str:
         return "decomposer"
 
 
-def create_workflow(cfg, vectordb):
+def create_workflow(cfg, vectordb, bm25_index=None):
     """Create and configure the LangGraph workflow"""
     
     # Initialize all nodes with configuration
     initialize_decomposer(cfg)
     initialize_action(cfg)
-    initialize_observation(cfg, vectordb)
+    initialize_observation(cfg, vectordb, bm25_index)
     initialize_evaluator(cfg)
     initialize_merger(cfg)
     

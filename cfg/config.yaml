@@ -20,6 +20,16 @@ tree:
     n_results: 5
     n_iterations: 5
 
+  # New hybrid retrieval settings
+  retrieval:
+    use_hybrid: true
+    dense_weight: 0.7
+    sparse_weight: 0.3
+    fusion_method: "rrf" # "rrf", "weighted", "parallel"
+    bm25_k1: 1.2
+    bm25_b: 0.75
+    rrf_k: 60
+
   flag:
     use_cache: false
     use_tools: false

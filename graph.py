@@ -20,11 +20,17 @@ def _initialize_workflow():
             # Build vector database
             print("Setting up vector database...")
             builder = DatabaseBuilder(cfg)
-            vectordb = builder.build_database()
+            result = builder.build_database()
+
+            if isinstance(result, tuple):
+                vectordb, bm25_index = result
+            else:
+                vectordb = result
+                bm25_index = None
             
             # Create workflow
             print("Initializing Multi-hop RAG workflow...")
-            workflow = create_workflow(cfg, vectordb)
+            workflow = create_workflow(cfg, vectordb, bm25_index)
             
             return workflow
     except Exception as e:
