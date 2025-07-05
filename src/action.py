@@ -46,41 +46,43 @@ def action_node(state: OverallState) -> Dict[str, Any]:
     current_time = datetime.now().strftime("%B %Y")  # e.g., "December 2024"
     current_date = datetime.now().strftime("%Y-%m-%d")  # e.g., "2024-12-01"
     
-    system_prompt = f"""You are an expert query generator. Your task is to create effective search queries to find information that answers a given subquestion.
+    system_prompt = f"""Bạn là một chuyên gia tạo truy vấn tìm kiếm. Nhiệm vụ của bạn là tạo ra các truy vấn tìm kiếm hiệu quả để tìm thông tin trả lời một câu hỏi phụ cụ thể.
 
-IMPORTANT DATABASE INFORMATION:
-- The database is a VECTOR DATABASE (semantic search), NOT a SQL database
-- Database queries should be NATURAL LANGUAGE queries, not SQL commands
-- Think of database queries as keywords or phrases that would find relevant documents
-- Examples of GOOD database queries: "artificial intelligence recent developments", "machine learning applications 2024", "climate change impact agriculture"
-- Examples of BAD database queries: "SELECT * FROM...", "WHERE year = 2024", any SQL syntax
+THÔNG TIN QUAN TRỌNG VỀ CƠ SỞ DỮ LIỆU:
+- Cơ sở dữ liệu là CƠ SỞ DỮ LIỆU VECTOR (tìm kiếm ngữ nghĩa), KHÔNG phải cơ sở dữ liệu SQL
+- Các truy vấn cơ sở dữ liệu phải là các truy vấn NGÔN NGỮ TỰ NHIÊN, không phải lệnh SQL
+- Hãy nghĩ về các truy vấn cơ sở dữ liệu như từ khóa hoặc cụm từ để tìm tài liệu liên quan
+- Ví dụ về truy vấn cơ sở dữ liệu TỐT: "trí tuệ nhân tạo phát triển gần đây", "ứng dụng học máy 2024", "tác động biến đổi khí hậu nông nghiệp"
+- Ví dụ về truy vấn cơ sở dữ liệu XẤU: "SELECT * FROM...", "WHERE year = 2024", bất kỳ cú pháp SQL nào
 
-CURRENT TIME CONTEXT:
-- Current date: {current_date}
-- Current month/year: {current_time}
-- Use this information to create time-relevant queries when needed
+BỐI CẢNH THỜI GIAN HIỆN TẠI:
+- Ngày hiện tại: {current_date}
+- Tháng/năm hiện tại: {current_time}
+- Sử dụng thông tin này để tạo các truy vấn phù hợp với thời gian khi cần
 
-Guidelines:
-1. Generate up to {N_QUERIES} DATABASE QUERIES as natural language search terms for vector database
-2. Generate up to {N_QUERIES} WEB SEARCH QUERIES optimized for web search engines
-3. Database queries should focus on finding documents with relevant concepts, keywords, or topics
-4. Web search queries should be optimized for finding recent information, current events, or latest data
-5. Include relevant time context in queries when the question involves recent or current information
-6. Make queries specific enough to find relevant information but not so narrow that they miss important content
-7. Consider different phrasings or approaches for better coverage
+Hướng dẫn:
+1. Tạo ra tối đa {N_QUERIES} TRUY VẤN CƠ SỞ DỮ LIỆU dưới dạng thuật ngữ tìm kiếm ngôn ngữ tự nhiên cho cơ sở dữ liệu vector
+2. Tạo ra tối đa {N_QUERIES} TRUY VẤN TÌM KIẾM WEB được tối ưu hóa cho các công cụ tìm kiếm web
+3. Các truy vấn cơ sở dữ liệu nên tập trung vào việc tìm tài liệu có khái niệm, từ khóa hoặc chủ đề liên quan
+4. Các truy vấn tìm kiếm web nên được tối ưu hóa để tìm thông tin gần đây, sự kiện hiện tại hoặc dữ liệu mới nhất
+5. Bao gồm bối cảnh thời gian phù hợp trong các truy vấn khi câu hỏi liên quan đến thông tin gần đây hoặc hiện tại
+6. Làm cho các truy vấn đủ cụ thể để tìm thông tin liên quan nhưng không quá hẹp đến mức bỏ lỡ nội dung quan trọng
+7. Xem xét các cách diễn đạt hoặc phương pháp khác nhau để có phạm vi bao phủ tốt hơn
 
-Main question context: {state.get('main_question', 'Not provided')}"""
+Bối cảnh câu hỏi chính: {state.get('main_question', 'Không được cung cấp')}
 
-    human_prompt = f"""Generate effective search queries for this subquestion:
+Vui lòng trả lời bằng tiếng Việt."""
 
-Subquestion: {subquestion}
+    human_prompt = f"""Tạo các truy vấn tìm kiếm hiệu quả cho câu hỏi phụ này:
 
-Remember:
-- Database queries: Natural language terms for semantic search (NOT SQL)
-- Web queries: Optimized for search engines
-- Include time context if the question involves recent developments or current information
+Câu hỏi phụ: {subquestion}
 
-Please provide your reasoning about what information is needed and then generate the appropriate database and web search queries."""
+Nhớ rằng:
+- Truy vấn cơ sở dữ liệu: Thuật ngữ ngôn ngữ tự nhiên cho tìm kiếm ngữ nghĩa (KHÔNG phải SQL)
+- Truy vấn web: Được tối ưu hóa cho các công cụ tìm kiếm
+- Bao gồm bối cảnh thời gian nếu câu hỏi liên quan đến những phát triển gần đây hoặc thông tin hiện tại
+
+Vui lòng cung cấp lý luận của bạn về thông tin cần thiết và sau đó tạo ra các truy vấn tìm kiếm cơ sở dữ liệu và web phù hợp."""
 
     try:
         response = ACTION_MODEL.invoke([
@@ -92,11 +94,11 @@ Please provide your reasoning about what information is needed and then generate
         database_queries = response.database_queries[:N_QUERIES]
         web_queries = response.web_search_queries[:N_QUERIES]
 
-        print("\n[ACTION] Generating queries for subquestion...")
+        print("\n[TÁC VỤ] Đang tạo truy vấn cho câu hỏi phụ...")
 
-        print(f"Action node generated {len(database_queries)} database queries and {len(web_queries)} web queries for subquestion: {subquestion}")
-        print("Database Queries:", database_queries)
-        print("Web Queries:", web_queries)
+        print(f"Nút Tác vụ đã tạo {len(database_queries)} truy vấn cơ sở dữ liệu và {len(web_queries)} truy vấn web cho câu hỏi phụ: {subquestion}")
+        print("Truy vấn Cơ sở dữ liệu:", database_queries)
+        print("Truy vấn Web:", web_queries)
 
         return {
             "current_thoughts": response.thoughts,
@@ -106,10 +108,10 @@ Please provide your reasoning about what information is needed and then generate
         }
         
     except Exception as e:
-        print(f"Error in action_node: {str(e)}")
+        print(f"Lỗi trong action_node: {str(e)}")
         # Fallback: create simple queries based on the subquestion
         return {
-            "current_thoughts": f"Error occurred, using fallback queries for: {subquestion}",
+            "current_thoughts": f"Đã xảy ra lỗi, sử dụng truy vấn dự phòng cho: {subquestion}",
             "current_database_queries": [subquestion],
             "current_web_queries": [subquestion],
             "current_subquestion": subquestion

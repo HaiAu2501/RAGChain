@@ -23,7 +23,7 @@ from langchain.schema import Document
 try:
     from rank_bm25 import BM25Okapi
 except ImportError:
-    print("Warning: rank_bm25 not found. Install with: pip install rank-bm25")
+    print("Cảnh báo: rank_bm25 không tìm thấy. Cài đặt với: pip install rank-bm25")
     BM25Okapi = None
 
 
@@ -110,10 +110,10 @@ class DatabaseBuilder:
         """
         # Check if database already exists
         if self._database_exists():
-            print(f"Database already exists at {self.database_dir}")
+            print(f"Cơ sở dữ liệu đã tồn tại tại {self.database_dir}")
             return self._update_database()
         
-        print(f"Initializing new database at {self.database_dir}")
+        print(f"Khởi tạo cơ sở dữ liệu mới tại {self.database_dir}")
         return self._create_new_database()
     
     def _database_exists(self) -> bool:
@@ -145,7 +145,7 @@ class DatabaseBuilder:
                 with open(self.bm25_index_path, 'rb') as f:
                     data = pickle.load(f)
                 
-                print(f"Loaded BM25 index with {len(data.get('doc_mapping', {}))} documents")
+                print(f"Đã tải chỉ mục BM25 với {len(data.get('doc_mapping', {}))} tài liệu")
                 
                 # Reconstruct BM25 index
                 tokenized_corpus = data.get('tokenized_corpus', [])
@@ -161,7 +161,7 @@ class DatabaseBuilder:
                 )
                 
             except Exception as e:
-                print(f"Error loading BM25 index: {str(e)}")
+                print(f"Lỗi tải chỉ mục BM25: {str(e)}")
                 return HybridSearchIndex()
         
         return HybridSearchIndex()
@@ -184,17 +184,17 @@ class DatabaseBuilder:
             with open(self.bm25_index_path, 'wb') as f:
                 pickle.dump(data, f)
             
-            print(f"Saved BM25 index with {len(bm25_index.doc_mapping)} documents")
+            print(f"Đã lưu chỉ mục BM25 với {len(bm25_index.doc_mapping)} tài liệu")
             
         except Exception as e:
-            print(f"Error saving BM25 index: {str(e)}")
+            print(f"Lỗi lưu chỉ mục BM25: {str(e)}")
     
     def _create_bm25_index(self, documents: List[Document]) -> HybridSearchIndex:
         """Create BM25 index from documents"""
         if not self.use_hybrid or BM25Okapi is None or not documents:
             return HybridSearchIndex()
         
-        print("Creating BM25 index...")
+        print("Đang tạo chỉ mục BM25...")
         
         tokenized_corpus = []
         doc_mapping = {}
@@ -214,7 +214,7 @@ class DatabaseBuilder:
             tokenized_corpus=tokenized_corpus
         )
         
-        print(f"Created BM25 index with {len(doc_mapping)} documents")
+        print(f"Đã tạo chỉ mục BM25 với {len(doc_mapping)} tài liệu")
         
         return hybrid_index
     
@@ -226,7 +226,7 @@ class DatabaseBuilder:
         if not new_documents:
             return existing_index
         
-        print("Updating BM25 index...")
+        print("Đang cập nhật chỉ mục BM25...")
         
         # Get existing data
         existing_corpus = existing_index.tokenized_corpus.copy()
@@ -249,7 +249,7 @@ class DatabaseBuilder:
             tokenized_corpus=existing_corpus
         )
         
-        print(f"Updated BM25 index: {len(existing_mapping)} total documents")
+        print(f"Đã cập nhật chỉ mục BM25: {len(existing_mapping)} tổng số tài liệu")
         
         return updated_index
     
@@ -262,7 +262,7 @@ class DatabaseBuilder:
                 with open(self.processed_files_path, 'r', encoding='utf-8') as f:
                     processed_files = set(line.strip() for line in f if line.strip())
             except Exception as e:
-                print(f"Error reading processed files list: {str(e)}")
+                print(f"Lỗi đọc danh sách tệp đã xử lý: {str(e)}")
                 
         return processed_files
     
@@ -276,7 +276,7 @@ class DatabaseBuilder:
                 for file_path in sorted(processed_files):
                     f.write(f"{file_path}\n")
         except Exception as e:
-            print(f"Error saving processed files list: {str(e)}")
+            print(f"Lỗi lưu danh sách tệp đã xử lý: {str(e)}")
     
     def _get_all_data_files(self) -> List[Path]:
         """Get all data files from data directory"""
@@ -316,10 +316,10 @@ class DatabaseBuilder:
                 new_files.append(file_path)
         
         if not new_files:
-            print("No new files to process. Database is up to date.")
+            print("Không có tệp mới để xử lý. Cơ sở dữ liệu đã cập nhật.")
             return vectordb, bm25_index
         
-        print(f"Found {len(new_files)} new files to process:")
+        print(f"Tìm thấy {len(new_files)} tệp mới để xử lý:")
         for file_path in new_files:
             print(f"  - {file_path}")
         
@@ -327,11 +327,11 @@ class DatabaseBuilder:
         new_documents = self._load_specific_documents(new_files)
         
         if new_documents:
-            print(f"Processing {len(new_documents)} new documents...")
+            print(f"Đang xử lý {len(new_documents)} tài liệu mới...")
             
             # Split documents into chunks
             chunks = self.text_splitter.split_documents(new_documents)
-            print(f"Split into {len(chunks)} chunks for embedding...")
+            print(f"Đã chia thành {len(chunks)} đoạn để embedding...")
             
             # Add new chunks to existing vector database
             self._add_chunks_to_database(vectordb, chunks)
@@ -344,11 +344,11 @@ class DatabaseBuilder:
             processed_files.update(str(f) for f in new_files)
             self._save_processed_files(processed_files)
             
-            print(f"Successfully added {len(new_documents)} new documents to databases!")
+            print(f"Đã thêm thành công {len(new_documents)} tài liệu mới vào cơ sở dữ liệu!")
             
             return vectordb, updated_bm25_index
         else:
-            print("No valid documents found in new files.")
+            print("Không tìm thấy tài liệu hợp lệ trong các tệp mới.")
             
             # Still update processed files list to avoid re-checking failed files
             processed_files.update(str(f) for f in new_files)
@@ -363,20 +363,20 @@ class DatabaseBuilder:
         
         # Check data directory
         if not self.data_dir.exists():
-            print(f"Data directory {self.data_dir} does not exist, initializing empty database.")
+            print(f"Thư mục dữ liệu {self.data_dir} không tồn tại, khởi tạo cơ sở dữ liệu trống.")
             documents = []
             all_files = []
         else:
-            print(f"Loading documents from {self.data_dir}")
+            print(f"Đang tải tài liệu từ {self.data_dir}")
             all_files = self._get_all_data_files()
             documents = self._load_specific_documents(all_files)
         
         # Create databases with documents (can be empty)
         if documents:
-            print(f"Processing {len(documents)} documents...")
+            print(f"Đang xử lý {len(documents)} tài liệu...")
             # Split documents into chunks
             chunks = self.text_splitter.split_documents(documents)
-            print(f"Split into {len(chunks)} chunks for embedding...")
+            print(f"Đã chia thành {len(chunks)} đoạn để embedding...")
             
             # Create vector database with batch processing
             vectordb = self._create_database_with_batches(chunks)
@@ -396,7 +396,7 @@ class DatabaseBuilder:
         processed_files = set(str(f) for f in all_files)
         self._save_processed_files(processed_files)
         
-        print("Databases created successfully!")
+        print("Cơ sở dữ liệu đã được tạo thành công!")
         return vectordb, bm25_index
     
     def _load_documents(self) -> List[Document]:
@@ -425,10 +425,10 @@ class DatabaseBuilder:
                 loader_class = loader_mapping.get(file_extension)
                 
                 if not loader_class:
-                    print(f"Skipping unsupported file type: {file_path}")
+                    print(f"Bỏ qua loại tệp không được hỗ trợ: {file_path}")
                     continue
                 
-                print(f"Loading: {file_path}")
+                print(f"Đang tải: {file_path}")
                 
                 # Special handling for JSON files
                 if file_extension == ".json":
@@ -457,10 +457,10 @@ class DatabaseBuilder:
                 documents.extend(docs)
                 
             except Exception as e:
-                print(f"Error loading file {file_path}: {str(e)}")
+                print(f"Lỗi tải tệp {file_path}: {str(e)}")
                 continue
         
-        print(f"Successfully loaded {len(documents)} documents from {len(file_paths)} files")
+        print(f"Đã tải thành công {len(documents)} tài liệu từ {len(file_paths)} tệp")
         return documents
     
     def _add_chunks_to_database(self, vectordb: Chroma, chunks: List[Document]):
@@ -478,29 +478,29 @@ class DatabaseBuilder:
             batch_num = (i // batch_size) + 1
             batch_chunks = chunks[i:i + batch_size]
             
-            print(f"Adding batch {batch_num}/{total_batches} ({len(batch_chunks)} chunks)...")
+            print(f"Đang thêm lô {batch_num}/{total_batches} ({len(batch_chunks)} đoạn)...")
             
             try:
                 # Add batch to existing database
                 vectordb.add_documents(batch_chunks)
-                print(f"Successfully added batch {batch_num}")
+                print(f"Đã thêm thành công lô {batch_num}")
                 
             except Exception as e:
                 if "max_tokens_per_request" in str(e):
-                    print(f"Batch {batch_num} too large, splitting further...")
+                    print(f"Lô {batch_num} quá lớn, đang chia nhỏ hơn...")
                     # Split this batch into smaller sub-batches
                     sub_batch_size = batch_size // 2
                     for j in range(0, len(batch_chunks), sub_batch_size):
                         sub_batch = batch_chunks[j:j + sub_batch_size]
                         try:
                             vectordb.add_documents(sub_batch)
-                            print(f"Successfully added sub-batch ({len(sub_batch)} chunks)")
+                            print(f"Đã thêm thành công lô con ({len(sub_batch)} đoạn)")
                         except Exception as sub_e:
-                            print(f"Error processing sub-batch: {str(sub_e)}")
+                            print(f"Lỗi xử lý lô con: {str(sub_e)}")
                             # Process chunks one by one as last resort
                             self._add_chunks_individually(vectordb, sub_batch)
                 else:
-                    print(f"Error processing batch {batch_num}: {str(e)}")
+                    print(f"Lỗi xử lý lô {batch_num}: {str(e)}")
                     continue
     
     def _create_database_with_batches(self, chunks: List[Document]) -> Chroma:
@@ -522,7 +522,7 @@ class DatabaseBuilder:
             try:
                 vectordb.add_documents([chunk])
                 if (idx + 1) % 10 == 0:
-                    print(f"Added {idx + 1}/{len(chunks)} individual chunks...")
+                    print(f"Đã thêm {idx + 1}/{len(chunks)} đoạn riêng lẻ...")
             except Exception as e:
-                print(f"Failed to add individual chunk {idx + 1}: {str(e)}")
+                print(f"Thất bại khi thêm đoạn riêng lẻ {idx + 1}: {str(e)}")
                 continue

@@ -30,11 +30,11 @@ def format_subquestion_results(results) -> str:
     formatted = []
     
     for i, result in enumerate(results, 1):
-        formatted.append(f"SUBQUESTION {i}: {result.subquestion}")
-        formatted.append(f"ANSWER: {result.answer}")
-        formatted.append(f"CONFIDENCE: {result.confidence:.2f}")
-        formatted.append(f"SUPPORT: {result.support:.2f}")
-        formatted.append(f"REASONING: {result.thoughts}")
+        formatted.append(f"CÂU HỎI PHỤ {i}: {result.subquestion}")
+        formatted.append(f"TRẢ LỜI: {result.answer}")
+        formatted.append(f"ĐỘ TIN CẬY: {result.confidence:.2f}")
+        formatted.append(f"ĐỘ HỖ TRỢ: {result.support:.2f}")
+        formatted.append(f"LÝ DO: {result.thoughts}")
         formatted.append("---")
     
     return "\n".join(formatted)
@@ -57,30 +57,32 @@ def merger_node(state: OverallState) -> Dict[str, Any]:
     # Format all collected information
     formatted_results = format_subquestion_results(subquestion_results)
     
-    system_prompt = f"""You are an expert answer synthesizer. Your task is to determine whether enough information has been collected to answer the main question, or if more focused research is needed.
+    system_prompt = f"""Bạn là một chuyên gia tổng hợp câu trả lời. Nhiệm vụ của bạn là xác định xem đã thu thập đủ thông tin để trả lời câu hỏi chính hay cần nghiên cứu thêm chuyên sâu.
 
-Guidelines:
-1. If you have sufficient information to provide a comprehensive answer to the main question:
-   - Set has_final_answer to True
-   - Provide a complete final_answer that addresses all aspects of the main question
-   - Synthesize information from all subquestions into a coherent response
+Hướng dẫn:
+1. Nếu bạn có đủ thông tin để đưa ra câu trả lời toàn diện cho câu hỏi chính:
+   - Đặt has_final_answer thành True
+   - Cung cấp một final_answer hoàn chỉnh giải quyết tất cả các khía cạnh của câu hỏi chính
+   - Tổng hợp thông tin từ tất cả các câu hỏi phụ thành một phản hồi mạch lạc
 
-2. If more information is needed:
-   - Set has_final_answer to False
-   - Select the subquestion with the HIGHEST combination of confidence and support scores
-   - Generate up to {N_BRANCHES} new focused subquestions that dive deeper into that topic
-   - New subquestions should be more specific and targeted than previous ones
+2. Nếu cần thêm thông tin:
+   - Đặt has_final_answer thành False
+   - Chọn câu hỏi phụ có điểm số KẾT HỢP CỦA TIN CẬY VÀ HỖ TRỢ cao nhất
+   - Tạo ra tối đa {N_BRANCHES} câu hỏi phụ mới tập trung sâu hơn vào chủ đề đó
+   - Các câu hỏi phụ mới phải cụ thể và nhắm mục tiêu hơn so với các câu trước
 
-Current iteration: {current_iteration + 1}/{max_iterations}"""
+Lượt hiện tại: {current_iteration + 1}/{max_iterations}
 
-    human_prompt = f"""Based on the collected information, decide whether to provide a final answer or continue research:
+Vui lòng trả lời bằng tiếng Việt."""
 
-MAIN QUESTION: {main_question}
+    human_prompt = f"""Dựa trên thông tin đã thu thập, hãy quyết định có nên đưa ra câu trả lời cuối cùng hay tiếp tục nghiên cứu:
 
-COLLECTED INFORMATION FROM SUBQUESTIONS:
+CÂU HỎI CHÍNH: {main_question}
+
+THÔNG TIN ĐÃ THU THẬP TỪ CÁC CÂU HỎI PHỤ:
 {formatted_results}
 
-Please analyze whether this information is sufficient to comprehensively answer the main question. If not, select the most promising subquestion for further exploration and generate new focused subquestions."""
+Vui lòng phân tích xem thông tin này có đủ để trả lời toàn diện câu hỏi chính hay không. Nếu chưa, hãy chọn câu hỏi phụ hứa hẹn nhất để khám phá thêm và tạo ra các câu hỏi phụ mới tập trung hơn."""
 
     try:
         response = MERGER_MODEL.invoke([
@@ -106,7 +108,7 @@ Please analyze whether this information is sufficient to comprehensively answer 
             }
         
     except Exception as e:
-        print(f"Error in merger_node: {str(e)}")
+        print(f"Lỗi trong merger_node: {str(e)}")
         # Fallback: provide final answer based on available information
         return force_final_answer(main_question, subquestion_results)
 
@@ -114,15 +116,15 @@ Please analyze whether this information is sufficient to comprehensively answer 
 def force_final_answer(main_question: str, subquestion_results) -> Dict[str, Any]:
     """Create a final answer when forced to conclude"""
     if not subquestion_results:
-        final_answer = "I don't have sufficient information to answer this question comprehensively."
+        final_answer = "Tôi không có đủ thông tin để trả lời câu hỏi này một cách toàn diện."
     else:
         # Combine all answers
         answers = []
         for result in subquestion_results:
-            answers.append(f"Regarding '{result.subquestion}': {result.answer}")
+            answers.append(f"Về '{result.subquestion}': {result.answer}")
         
-        final_answer = f"Based on the available information:\n\n" + "\n\n".join(answers)
-        final_answer += f"\n\nThis represents the most comprehensive answer I can provide for: {main_question}"
+        final_answer = f"Dựa trên thông tin có sẵn:\n\n" + "\n\n".join(answers)
+        final_answer += f"\n\nĐây là câu trả lời toàn diện nhất tôi có thể cung cấp cho: {main_question}"
     
     return {
         "final_answer": final_answer,

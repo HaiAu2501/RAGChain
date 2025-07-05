@@ -18,7 +18,7 @@ def _initialize_workflow():
             cfg = compose(config_name="config")
             
             # Build vector database
-            print("Setting up vector database...")
+            print("Đang thiết lập cơ sở dữ liệu vector...")
             builder = DatabaseBuilder(cfg)
             result = builder.build_database()
 
@@ -29,12 +29,12 @@ def _initialize_workflow():
                 bm25_index = None
             
             # Create workflow
-            print("Initializing Multi-hop RAG workflow...")
+            print("Đang khởi tạo quy trình RAG đa bước...")
             workflow = create_workflow(cfg, vectordb, bm25_index)
             
             return workflow
     except Exception as e:
-        print(f"Error initializing workflow: {e}")
+        print(f"Lỗi khởi tạo quy trình: {e}")
         return None
 
 # Create workflow instance for langgraph dev

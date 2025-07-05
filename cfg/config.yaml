@@ -20,7 +20,7 @@ tree:
     n_results: 5
     n_iterations: 5
 
-  # New hybrid retrieval settings
+  # Hybrid retrieval settings
   retrieval:
     use_hybrid: true
     dense_weight: 0.7
@@ -30,9 +30,14 @@ tree:
     bm25_b: 0.75
     rrf_k: 60
 
-  flag:
-    use_cache: false
-    use_tools: false
+  # Web search settings
+  web_search:
+    timeout_seconds: 15
+    max_retries: 2
+    retry_delay: 5
+    region: "vn-vi" # Vietnamese region
+    time_filter: "y" # Past year
+    enable_fallback: true
 
 paths:
   project_root: .

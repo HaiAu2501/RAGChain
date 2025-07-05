@@ -33,49 +33,51 @@ def decomposer_node(state: OverallState) -> Dict[str, Any]:
     if state.get("current_iteration", 0) == 0:
         # First iteration - decompose main question
         question_to_decompose = state["question"]
-        context = "This is the main question that needs to be answered."
+        context = "Đây là câu hỏi chính cần được trả lời."
     else:
         # Later iterations - decompose selected subquestion
         # Find the selected subquestion from merger results
         question_to_decompose = state.get("current_subquestion", state["question"])
-        context = f"""This is a subquestion selected for further decomposition. 
-        Main question: {state['main_question']}
-        Previous subquestions and answers: {[f'Q: {r.subquestion}, A: {r.answer}' for r in state.get('subquestion_results', [])]}"""
+        context = f"""Đây là một câu hỏi phụ được chọn để phân tách thêm. 
+        Câu hỏi chính: {state['main_question']}
+        Các câu hỏi phụ và câu trả lời trước đó: {[f'H: {r.subquestion}, Đ: {r.answer}' for r in state.get('subquestion_results', [])]}"""
     
     # Get current time for context
     current_time = datetime.now().strftime("%B %Y")  # e.g., "December 2024"
     current_date = datetime.now().strftime("%Y-%m-%d")  # e.g., "2024-12-01"
     
-    system_prompt = f"""You are an expert question decomposer. Your task is to break down complex questions into simpler, more focused subquestions that can be answered independently.
+    system_prompt = f"""Bạn là một chuyên gia phân tách câu hỏi. Nhiệm vụ của bạn là chia những câu hỏi phức tạp thành các câu hỏi phụ đơn giản hơn, tập trung hơn và có thể được trả lời độc lập.
 
-CURRENT TIME CONTEXT:
-- Current date: {current_date}
-- Current month/year: {current_time}
-- Use this information when creating time-relevant subquestions
+BỐI CẢNH THỜI GIAN HIỆN TẠI:
+- Ngày hiện tại: {current_date}
+- Tháng/năm hiện tại: {current_time}
+- Sử dụng thông tin này khi tạo các câu hỏi phụ liên quan đến thời gian
 
-Guidelines:
-1. Generate exactly {N_BRANCHES} subquestions maximum
-2. Each subquestion should be specific and answerable through database search or web search
-3. Subquestions should collectively help answer the original question
-4. Avoid redundant or overly similar subquestions
-5. Focus on the most important aspects needed to answer the original question
-6. Include time context in subquestions when the original question involves recent developments, current events, or time-sensitive information
-7. For questions about "latest", "recent", "current" topics, ensure subquestions specify relevant time periods
+Hướng dẫn:
+1. Tạo ra chính xác tối đa {N_BRANCHES} câu hỏi phụ
+2. Mỗi câu hỏi phụ phải cụ thể và có thể trả lời được thông qua tìm kiếm cơ sở dữ liệu hoặc tìm kiếm web
+3. Các câu hỏi phụ phải cùng nhau giúp trả lời câu hỏi gốc
+4. Tránh các câu hỏi phụ dư thừa hoặc quá giống nhau
+5. Tập trung vào những khía cạnh quan trọng nhất cần thiết để trả lời câu hỏi gốc
+6. Bao gồm bối cảnh thời gian trong các câu hỏi phụ khi câu hỏi gốc liên quan đến những phát triển gần đây, sự kiện hiện tại hoặc thông tin nhạy cảm về thời gian
+7. Đối với câu hỏi về "mới nhất", "gần đây", "hiện tại", hãy đảm bảo các câu hỏi phụ chỉ định khoảng thời gian phù hợp
 
-Examples of time-aware subquestions:
-- "What are the latest AI developments in 2024?"
-- "What recent climate policies have been implemented?"
-- "How has renewable energy adoption changed in recent years?"
+Ví dụ về câu hỏi phụ nhận biết thời gian:
+- "Những phát triển AI mới nhất trong năm 2024 là gì?"
+- "Những chính sách khí hậu gần đây nào đã được thực hiện?"
+- "Việc áp dụng năng lượng tái tạo đã thay đổi như thế nào trong những năm gần đây?"
 
-Context: {context}"""
+Bối cảnh: {context}
 
-    human_prompt = f"""Please decompose this question into focused subquestions:
+Vui lòng trả lời bằng tiếng Việt."""
+
+    human_prompt = f"""Hãy phân tách câu hỏi này thành các câu hỏi phụ tập trung:
     
-Question: {question_to_decompose}
+Câu hỏi: {question_to_decompose}
 
-Consider the current time context ({current_time}) when creating subquestions, especially if the question involves recent developments, current trends, or time-sensitive information.
+Xem xét bối cảnh thời gian hiện tại ({current_time}) khi tạo các câu hỏi phụ, đặc biệt nếu câu hỏi liên quan đến những phát triển gần đây, xu hướng hiện tại hoặc thông tin nhạy cảm về thời gian.
 
-Provide your reasoning and then list the subquestions."""
+Cung cấp lý luận của bạn và sau đó liệt kê các câu hỏi phụ."""
 
     try:
         response = DECOMPOSER_MODEL.invoke([
@@ -86,9 +88,9 @@ Provide your reasoning and then list the subquestions."""
         # Limit to N_BRANCHES subquestions
         subquestions = response.subquestions[:N_BRANCHES]
 
-        print("\n[DECOMPOSER] Decomposing question...")
+        print("\n[PHÂN TÁCH] Đang phân tách câu hỏi...")
 
-        print(f"Decomposed {len(subquestions)} subquestions from '{question_to_decompose}':")
+        print(f"Đã phân tách {len(subquestions)} câu hỏi phụ từ '{question_to_decompose}':")
         for i, subq in enumerate(subquestions):
             print(f"  {i + 1}. {subq}")
         
@@ -99,7 +101,7 @@ Provide your reasoning and then list the subquestions."""
         }
         
     except Exception as e:
-        print(f"Error in decomposer_node: {str(e)}")
+        print(f"Lỗi trong decomposer_node: {str(e)}")
         # Fallback: use original question as single subquestion
         return {
             "current_subquestions": [question_to_decompose],
